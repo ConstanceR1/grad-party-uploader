@@ -1,4 +1,4 @@
-from flask import Flask, request, send_from_directory
+from flask import Flask, request, send_from_directory, jsonify
 import os
 import uuid
 import json
@@ -516,6 +516,24 @@ def gallery():
     """
 
 
+@app.route("/slideshow-data")
+def slideshow_data():
+    key = request.args.get("key")
+    if key != ADMIN_KEY:
+        return jsonify({"error": "Access denied"}), 403
+
+    meta = list(reversed(load_meta()))
+    slides = [
+        {
+            "img": f"/uploads/{item['file']}",
+            "name": item.get("name") or "Guest",
+            "msg": item.get("message") or ""
+        }
+        for item in meta
+    ]
+    return jsonify({"slides": slides})
+
+
 @app.route("/slideshow")
 def slideshow():
     key = request.args.get("key")
@@ -539,7 +557,6 @@ def slideshow():
     <html>
     <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="refresh" content="30">
     <title>Slideshow 💕</title>
     <style>
         body {{
@@ -852,7 +869,7 @@ def slideshow():
         </div>
 
         <script>
-            const slides = {json.dumps(slides)};
+            let slides = {json.dumps(slides)};
             let i = 0;
 
             const img = document.getElementById("slide");
@@ -867,22 +884,50 @@ def slideshow():
                 progressBar.style.animation = "progress 10s linear infinite";
             }}
 
-            setInterval(() => {{
-                if (slides.length === 0) return;
+            function showSlide(index) {{
+                if (!slides.length) return;
 
                 img.style.opacity = 0;
 
                 setTimeout(() => {{
-                    i = (i + 1) % slides.length;
-                    img.src = slides[i].img;
-                    bg.src = slides[i].img;
-                    name.textContent = slides[i].name;
-                    msg.textContent = slides[i].msg;
+                    img.src = slides[index].img;
+                    bg.src = slides[index].img;
+                    name.textContent = slides[index].name;
+                    msg.textContent = slides[index].msg;
                     img.style.opacity = 1;
                     restartProgress();
                 }}, 1000);
+            }}
 
+            setInterval(() => {{
+                if (!slides.length) return;
+                i = (i + 1) % slides.length;
+                showSlide(i);
             }}, 10000);
+
+            async function refreshSlides() {{
+                try {{
+                    const res = await fetch("/slideshow-data?key={key}");
+                    const data = await res.json();
+
+                    if (data.slides && Array.isArray(data.slides)) {{
+                        const currentImg = slides.length ? slides[i]?.img : null;
+                        slides = data.slides;
+
+                        if (!slides.length) return;
+
+                        const foundIndex = currentImg
+                            ? slides.findIndex(s => s.img === currentImg)
+                            : 0;
+
+                        i = foundIndex >= 0 ? foundIndex : 0;
+                    }}
+                }} catch (e) {{
+                    console.log("Could not refresh slides", e);
+                }}
+            }}
+
+            setInterval(refreshSlides, 30000);
         </script>
 
     </body>
