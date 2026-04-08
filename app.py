@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template_string, send_from_directory
+from flask import Flask, request, send_from_directory
 import os
 import uuid
 import json
@@ -34,7 +34,7 @@ UPLOAD_HTML = """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Upload Pics 💖</title>
+    <title>Upload Your Grad Pics 💕</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         * {
@@ -299,6 +299,7 @@ THANK_YOU_HTML = """
 </html>
 """
 
+
 @app.route("/", methods=["GET", "POST"])
 def upload():
     if request.method == "POST":
@@ -514,6 +515,98 @@ def gallery():
                 {gallery_html}
             </div>
         </div>
+    </body>
+    </html>
+    """
+
+
+@app.route("/slideshow")
+def slideshow():
+    key = request.args.get("key")
+    if key != ADMIN_KEY:
+        return "Access denied", 403
+
+    meta = load_meta()
+    meta = list(reversed(meta))
+    images = [f"/uploads/{item['file']}" for item in meta]
+
+    first_image = images[0] if images else ""
+
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Slideshow 💕</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="refresh" content="60">
+        <style>
+            body {{
+                margin: 0;
+                background:
+                    radial-gradient(circle at top left, rgba(255,105,180,0.18), transparent 25%),
+                    radial-gradient(circle at bottom right, rgba(255,20,147,0.14), transparent 25%),
+                    linear-gradient(135deg, #0f0015, #1d0026 45%, #2d0038 100%);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                overflow: hidden;
+                font-family: Arial, sans-serif;
+                color: white;
+            }}
+
+            .frame {{
+                width: 100%;
+                height: 100%;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                position: relative;
+                padding: 20px;
+            }}
+
+            img {{
+                max-width: 100%;
+                max-height: 100%;
+                object-fit: contain;
+                border-radius: 18px;
+                box-shadow:
+                    0 0 18px rgba(255, 20, 147, 0.25),
+                    0 0 36px rgba(255, 105, 180, 0.18);
+            }}
+
+            .label {{
+                position: absolute;
+                bottom: 18px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(0,0,0,0.45);
+                border: 1px solid rgba(255,182,230,0.22);
+                border-radius: 999px;
+                padding: 10px 16px;
+                color: #ffd7f1;
+                font-size: 0.95rem;
+                backdrop-filter: blur(8px);
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="frame">
+            <img id="slide" src="{first_image}">
+            <div class="label">Grad Party Slideshow 💕</div>
+        </div>
+
+        <script>
+            const images = {json.dumps(images)};
+            let i = 0;
+            const slide = document.getElementById("slide");
+
+            setInterval(() => {{
+                if (images.length === 0) return;
+                i = (i + 1) % images.length;
+                slide.src = images[i];
+            }}, 3000);
+        </script>
     </body>
     </html>
     """
